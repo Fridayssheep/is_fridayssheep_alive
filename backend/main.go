@@ -87,12 +87,12 @@ func main() {
 
 	githubUsername := os.Getenv("GITHUB_USERNAME")
 	if githubUsername == "" {
-		githubUsername = "frisheep"
+		log.Fatal("GITHUB_USERNAME environment variable is not configured. Exiting.")
 	}
 
 	ollamaURL := os.Getenv("OLLAMA_API_URL")
 	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434"
+		log.Fatal("OLLAMA_API_URL environment variable is not configured. Exiting.")
 	}
 
 	// 从环境变量加载刷新时间，默认 5 秒
@@ -106,8 +106,7 @@ func main() {
 	router.StartPolling(sshClient, githubUsername, ollamaURL, refreshInterval)
 
 	// 挂载路由（处理 GET 请求，直接返回内存缓存的值）
-	handler := router.SetupRouter()
-
+	handler := router.SetupRouter(sshClient)
 	fmt.Printf("Starting remote monitoring backend on :%s, auto-refresh every %ds\n", port, refreshInterval)
 	log.Fatal(http.ListenAndServe(":"+port, handler))
 }

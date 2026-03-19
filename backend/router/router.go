@@ -83,8 +83,18 @@ func StartPolling(sshClient *ssh.Client, githubUsername string, ollamaURL string
 }
 
 // SetupRouter 初始化挂载所有的路由接口并包装 CORS
-func SetupRouter() http.Handler {
+func SetupRouter(sshClient *ssh.Client) http.Handler {
 	mux := http.NewServeMux()
+
+	// 在启动时异步获取并缓存硬件信息，避免阻塞主线程，且只需获取一次
+	var hwCache *monitor.HardwareInfo
+	var hwMu sync.RWMutex
+	go func() {
+		info := monitor.GetHardwareInfo(sshClient)
+		hwMu.Lock()
+		hwCache = &info
+		hwMu.Unlock()
+	}()
 
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
 		if globalCache == nil {
@@ -102,6 +112,19 @@ func SetupRouter() http.Handler {
 	})
 
 	// 配置 CORS 处理跨域
+	mux.HandleFunc("/api/hardware", func(w http.ResponseWriter, r *http.Request) {
+		hwMu.RLock()
+		data := hwCache
+		hwMu.RUnlock()
+
+		if data == nil {
+			http.Error(w, `{"error": "Hardware info is still loading"}`, http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
+	})
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET"},

@@ -3,6 +3,7 @@ package monitor
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -48,8 +49,17 @@ func GetOllamaStatus(client *ssh.Client, ollamaURL string) []OllamaRunningModel 
 		return running
 	}
 
+	// 因为 bashrc 带有图案，寻找最后一个 '{' 的那一行之后的所有内容尝试解析 json
+	idx := strings.Index(out, "{")
+	var validJson string
+	if idx >= 0 {
+		validJson = out[idx:]
+	} else {
+		validJson = out
+	}
+
 	var status OllamaStatus
-	if err := json.Unmarshal([]byte(out), &status); err != nil {
+	if err := json.Unmarshal([]byte(validJson), &status); err != nil {
 		return running
 	}
 

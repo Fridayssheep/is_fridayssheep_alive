@@ -24,7 +24,7 @@ func RunCommand(client *ssh.Client, cmd string) (string, error) {
 
 	err = session.Run(cmd)
 	if err != nil {
-		return "", fmt.Errorf("failed to run command: %w", err)
+		return stdoutBuf.String(), fmt.Errorf("failed to run command: %v, out: %s", err, stdoutBuf.String())
 	}
 
 	return stdoutBuf.String(), nil
