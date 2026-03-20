@@ -71,8 +71,7 @@ func initSSHClient() error {
 }
 
 func main() {
-	// 加载 .env 配置文件
-	_ = godotenv.Load()
+	_ = godotenv.Load("../.env", ".env")
 
 	err := initSSHClient()
 	if err != nil {

@@ -1,0 +1,41 @@
+:root {
+  /* 修改 Element Plus 的主色调为博客的青蓝色 */
+  --el-color-primary: #4abeb6;
+  --el-color-primary-light-3: #80d3ce;
+  --el-color-primary-light-5: #a5e1dd;
+  --el-color-primary-light-7: #c9efec;
+  --el-color-primary-light-9: #ecf9f8;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  /* 背景图，使用一张二次元图（你可以自己在 public 放一张，然后改成 url('/你的图.jpg')） */
+  background: url('https://api.dujin.org/pic/ACG') no-repeat center center fixed;
+  background-size: cover;
+  color: #333;
+}
+
+/* 覆盖 el-card 使其呈现毛玻璃效果 */
+.el-card {
+  background: rgba(255, 255, 255, 0.8) !important; /* 半透明白色背景 */
+  backdrop-filter: blur(12px); /* 毛玻璃模糊 */
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.3s ease;
+}
+
+.el-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1) !important;
+}
+
+.el-card__header {
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.1) !important;
+  font-weight: bold;
+  font-size: 1.1em;
+  color: #4abeb6;
+}
