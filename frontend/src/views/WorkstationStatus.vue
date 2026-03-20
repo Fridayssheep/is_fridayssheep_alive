@@ -54,7 +54,10 @@
               <div class="hw-content">
                 <div class="hw-label">图形处理器 (GPU)</div>
                 <div class="hw-value" v-if="hardwareInfo?.gpus && hardwareInfo.gpus.length">
-                  {{ hardwareInfo.gpus.join(', ') }}
+                  <div v-for="(gpu, idx) in hardwareInfo.gpus" :key="idx" style="margin-bottom: 4px; font-size: 0.9rem; line-height: 1.4;">
+                    <el-tag size="small" type="info" style="margin-right: 6px;">GPU {{ idx }}</el-tag>
+                    {{ gpu }}
+                  </div>
                 </div>
                 <div class="hw-value" v-else>未检测到独立显卡</div>
               </div>
@@ -75,7 +78,7 @@
             <!-- CPU -->
             <div class="kuma-service">
               <div class="kuma-service-left">
-                <el-tag :type="status?.system ? 'success' : 'info'" effect="dark" round class="percentage-tag">
+                <el-tag :type="status?.system ? getTagType(status.system.cpu_percent) : 'info'" effect="dark" round class="percentage-tag">
                   {{ status?.system ? status.system.cpu_percent + '%' : '离线' }}
                 </el-tag>
                 <div class="kuma-service-name">
@@ -109,7 +112,7 @@
             <!-- Memory -->
             <div class="kuma-service" style="border-bottom: none; margin-bottom: 0;">
               <div class="kuma-service-left">
-                <el-tag :type="status?.system ? 'success' : 'info'" effect="dark" round class="percentage-tag">
+                <el-tag :type="status?.system ? getTagType(status.system.mem_percent) : 'info'" effect="dark" round class="percentage-tag">
                   {{ status?.system ? status.system.mem_percent.toFixed(1) + '%' : '离线' }}
                 </el-tag>
                 <div class="kuma-service-name">
@@ -155,7 +158,76 @@
           <template #header>
             <div class="card-header"><el-icon><VideoCamera /></el-icon> GPU 运行状态</div>
           </template>
-          <pre class="json-box" v-if="status?.gpus">{{ status.gpus }}</pre>
+          
+          <div v-if="status?.gpus && status.gpus.length" class="kuma-metrics" style="padding-top: 0; gap: 15px;">
+            <div v-for="(gpu, idx) in status.gpus" :key="'gpu-cfg-'+idx" style="border-bottom: 1px dashed rgba(0,0,0,0.08); padding-bottom: 15px; margin-bottom: 5px;">
+              <div style="font-size: 0.95rem; font-weight: bold; margin-bottom: 12px; color: #555; display: flex; align-items: center;">
+                <el-icon style="margin-right: 4px;"><VideoCamera /></el-icon> GPU 核心 {{ idx }}
+                <el-tag size="small" type="danger" round style="margin-left:10px;">
+                  <div style="display: flex; align-items: center; gap: 4px;"><el-icon><Odometer /></el-icon> <span>{{ gpu.temperature }}</span></div>
+                </el-tag>
+                <el-tag size="small" type="warning" round style="margin-left:6px;">
+                  <div style="display: flex; align-items: center; gap: 4px;"><el-icon><Lightning /></el-icon> <span>{{ gpu.power_draw }}</span></div>
+                </el-tag>
+              </div>
+
+              <!-- GPU 利用率 -->
+              <div class="kuma-service" style="border-bottom: none; margin-bottom: 10px; padding-bottom: 0;">
+                <div class="kuma-service-left">
+                  <el-tag :type="getTagType(gpu.utilization)" effect="dark" round class="percentage-tag">
+                    {{ gpu.utilization }}
+                  </el-tag>
+                  <div class="kuma-service-name" style="font-size: 0.9rem;">计算</div>
+                </div>
+                <div class="kuma-bars-container">
+                  <div class="kuma-bars" style="height: 25px;">
+                    <el-tooltip
+                      v-for="i in totalBars" :key="'gutil-'+idx+'-'+i"
+                      :content="'核心占用: ' + gpu.utilization"
+                      placement="top"
+                      :show-after="50"
+                    >
+                      <div class="kuma-bar-bg">
+                        <div class="kuma-bar-fill" :style="{
+                          height: getBarHeight(displayGpus[idx]?.util, i),
+                          backgroundColor: getBarColor(displayGpus[idx]?.util),
+                          transitionDelay: displayGpus[idx]?.utilDir === 'up' ? `${i * 0.015}s` : `${(totalBars - i) * 0.015}s`
+                        }"></div>
+                      </div>
+                    </el-tooltip>
+                  </div>
+                </div>
+              </div>
+
+              <!-- GPU 显存 -->
+              <div class="kuma-service" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
+                <div class="kuma-service-left">
+                  <el-tag :type="getTagType((parseFloat(gpu.memory_used)/parseFloat(gpu.memory_total))*100)" effect="dark" round class="percentage-tag">
+                    {{ ((parseFloat(gpu.memory_used)/parseFloat(gpu.memory_total))*100).toFixed(1) }}%
+                  </el-tag>
+                  <div class="kuma-service-name" style="font-size: 0.9rem;">显存</div>
+                </div>
+                <div class="kuma-bars-container">
+                  <div class="kuma-bars" style="height: 25px;">
+                    <el-tooltip
+                      v-for="i in totalBars" :key="'gmem-'+idx+'-'+i"
+                      :content="'VRAM使用: ' + gpu.memory_used + ' / ' + gpu.memory_total"
+                      placement="top"
+                      :show-after="50"
+                    >
+                      <div class="kuma-bar-bg">
+                        <div class="kuma-bar-fill" :style="{
+                          height: getBarHeight(displayGpus[idx]?.mem, i),
+                          backgroundColor: getBarColor(displayGpus[idx]?.mem),
+                          transitionDelay: displayGpus[idx]?.memDir === 'up' ? `${i * 0.015}s` : `${(totalBars - i) * 0.015}s`
+                        }"></div>
+                      </div>
+                    </el-tooltip>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <el-empty v-else description="设备离线 或 尚未采集到 GPU 信息" :image-size="60">
             <template #image>
               <el-icon size="60" color="#c0c4cc"><VideoCamera /></el-icon>
@@ -170,8 +242,22 @@
           <template #header>
             <div class="card-header"><el-icon><MagicStick /></el-icon> 🦙 Ollama 服务</div>
           </template>
-          <pre class="json-box" v-if="status?.ollama">{{ status.ollama }}</pre>
-          <el-empty v-else description="Ollama 服务未启动 / 无法连接" :image-size="60">
+          
+          <div v-if="status?.ollama && status.ollama.length > 0" class="hw-list" style="margin-top: 10px;">
+            <div class="hw-item" v-for="(model, idx) in status.ollama" :key="'ollama-'+idx" style="padding-bottom: 15px; border-bottom: 1px solid #f0f0f0;">
+              <el-icon style="font-size: 32px; color: #8e44ad; background: rgba(142, 68, 173, 0.1);"><Box /></el-icon>
+              <div class="hw-content" style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span class="hw-value" style="font-weight: bold; color: var(--el-color-primary);">{{ model.name }}</span>
+                  <el-tag size="small" type="success" effect="dark" round>占用 {{ formatBytes(model.size_vram) }}</el-tag>
+                </div>
+                <div class="hw-label" style="display: flex; align-items: center; gap: 4px;">
+                  <el-icon><Clock /></el-icon> 驻留释放: {{ new Date(model.expires_at).toLocaleString() }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <el-empty v-else description="当前无存活的模型或服务未连接" :image-size="60">
             <template #image>
               <el-icon size="60" color="#c0c4cc"><MagicStick /></el-icon>
             </template>
@@ -186,7 +272,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
-import { Platform, Monitor, Cpu, Coin, VideoCamera, Odometer, Opportunity, MagicStick, RefreshRight } from '@element-plus/icons-vue'
+import { Platform, Monitor, Cpu, Coin, VideoCamera, Odometer, Opportunity, MagicStick, RefreshRight, Box, Clock, Lightning } from '@element-plus/icons-vue'
 
 const hardwareInfo = ref(null)
 const hwLoading = ref(true)
@@ -205,8 +291,19 @@ const displayCpu = ref(0)
 const cpuDirection = ref('up') // 'up' 表示涨或初始加载，'down' 表示降
 const displayMem = ref(0)
 const memDirection = ref('up')
+const displayGpus = ref([]) // 用于记录各个 GPU 的独立进度动画 { util, utilDir, mem, memDir }
 
 const totalBars = 40 // 总共 40 个刻度，每一个代表 2.5%
+
+// 获取标签颜色的逻辑 (根据占用率决定: 绿、橙、红)
+const getTagType = (val) => {
+  if (val === null || val === undefined) return 'info'
+  const num = parseFloat(val)
+  if (isNaN(num)) return 'info'
+  if (num < 60) return 'success'
+  if (num < 85) return 'warning'
+  return 'danger'
+}
 
 // 计算每一个单根柱子的填充高度 (支持平滑填充一半的格子)
 const getBarHeight = (percent, i) => {
@@ -257,31 +354,50 @@ const fetchStatus = async () => {
     const res = await axios.get('/api/status')
     status.value = res.data
     
-    // 判断新数据是比当前高还是低，来决定波浪动画的方向
-    if (res.data?.system) {
-      const newCpu = res.data.system.cpu_percent
-      const newMem = res.data.system.mem_percent
-      
-      const applyData = () => {
+    const applyData = () => {
+      // 1. 处理 CPU & RAM
+      if (res.data?.system) {
+        const newCpu = res.data.system.cpu_percent
+        const newMem = res.data.system.mem_percent
         cpuDirection.value = newCpu >= displayCpu.value ? 'up' : 'down'
         displayCpu.value = newCpu
-        
         memDirection.value = newMem >= displayMem.value ? 'up' : 'down'
         displayMem.value = newMem
+      } else {
+        cpuDirection.value = 'down'
+        displayCpu.value = 0
+        memDirection.value = 'down'
+        displayMem.value = 0
       }
 
-      if (isFirstLoad) {
-        isFirstLoad = false
-        // 延迟600ms，等卡片的 fadeInUp 进场动画基本完成后再开始波浪填充
-        setTimeout(applyData, 600)
+      // 2. 处理多 GPU 的数据与分别的波浪动画
+      if (res.data?.gpus && res.data.gpus.length) {
+        if (displayGpus.value.length !== res.data.gpus.length) {
+          displayGpus.value = res.data.gpus.map(() => ({ util: 0, utilDir: 'up', mem: 0, memDir: 'up' }))
+        }
+        res.data.gpus.forEach((gpu, idx) => {
+          const newUtil = parseFloat(gpu.utilization) || 0
+          const memUsed = parseFloat(gpu.memory_used) || 0
+          const memTotal = parseFloat(gpu.memory_total) || 1
+          const newMem = (memUsed / memTotal) * 100
+
+          displayGpus.value[idx].utilDir = newUtil >= displayGpus.value[idx].util ? 'up' : 'down'
+          displayGpus.value[idx].util = newUtil
+
+          displayGpus.value[idx].memDir = newMem >= displayGpus.value[idx].mem ? 'up' : 'down'
+          displayGpus.value[idx].mem = newMem
+        })
       } else {
-        applyData()
+        displayGpus.value = []
       }
+    }
+
+    if (isFirstLoad) {
+      isFirstLoad = false
+      // 延迟600ms，等卡片的 fadeInUp 进场动画基本完成后再开始波浪填充
+      setTimeout(applyData, 600)
     } else {
-      cpuDirection.value = 'down'
-      displayCpu.value = 0
-      memDirection.value = 'down'
-      displayMem.value = 0
+      applyData()
     }
 
   } catch (error) {
@@ -291,6 +407,7 @@ const fetchStatus = async () => {
     displayCpu.value = 0
     memDirection.value = 'down'
     displayMem.value = 0
+    displayGpus.value = []
   } finally {
     statusLoading.value = false
     countdown.value = refreshInterval // 请求完成后重置倒计时

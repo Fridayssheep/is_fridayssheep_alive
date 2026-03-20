@@ -29,8 +29,9 @@ type OllamaStatus struct {
 }
 
 type OllamaRunningModel struct {
-	Name     string `json:"name"`
-	SizeVRAM uint64 `json:"size_vram"`
+	Name      string    `json:"name"`
+	SizeVRAM  uint64    `json:"size_vram"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 func GetOllamaStatus(client *ssh.Client, ollamaURL string) []OllamaRunningModel {
@@ -65,8 +66,9 @@ func GetOllamaStatus(client *ssh.Client, ollamaURL string) []OllamaRunningModel 
 
 	for _, m := range status.Models {
 		running = append(running, OllamaRunningModel{
-			Name:     m.Name,
-			SizeVRAM: m.SizeVRAM,
+			Name:      m.Name,
+			SizeVRAM:  m.SizeVRAM,
+			ExpiresAt: m.ExpiresAt,
 		})
 	}
 
