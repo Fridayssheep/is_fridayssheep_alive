@@ -177,8 +177,7 @@ const fetchConfig = async () => {
 
 const fetchActivity = async () => {
   try {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
-    const res = await axios.get(`${backendUrl}/api/activity`)
+    const res = await axios.get(`/api/activity`)
     activityData.value = res.data
   } catch (error) {
     console.error("加载活动数据失败", error)

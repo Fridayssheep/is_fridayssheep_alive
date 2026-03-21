@@ -12,7 +12,7 @@ body {
   padding: 0;
   font-family: 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   /* 背景图可以自己在 public 放一张，然后改成 url('/你的图.jpg')） */
-  background: url('/defaultbglight.webp') no-repeat center center fixed;
+  background: url('/background.webp') no-repeat center center fixed;
   background-size: cover;
   color: #333;
 }

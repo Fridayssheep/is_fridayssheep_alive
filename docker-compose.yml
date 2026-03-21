@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: frisheep-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # 如果你希望后端直接对宿主机暴露可以取消这行注释
+      # - "8080:8080"
+      - "8080" # 只在 Docker 网络内暴露
+    # 将包含 SSH 私钥的目录映射以便程序可以使用它
+    # volumes:
+    #   - ~/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frisheep-frontend
+    restart: unless-stopped
+    ports:
+      # 对外暴露前端网页的端口，例如这里映射为本机的 5601 端口
+      - "5601:80"
+    volumes:
+      # 将宿主机的配置文件映射进容器，后续即可不用重启镜像就直接热生效修改
+      - ./frontend/public/config.json:/usr/share/nginx/html/config.json:ro
+    depends_on:
+      - backend
