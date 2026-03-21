@@ -2,19 +2,12 @@
   <div class="home-container">
     <el-card class="hero-card" shadow="never">
       <div class="hero-content">
-        <h1 class="title">Fridayssheep 的鲸湾</h1>
-        <p class="subtitle">在这里，记录着鲸君_</p>
-        <p class="desc">
-          <el-icon><Microphone /></el-icon>
-          Hello, 2026 ヾ(≧▽≦*)o
-        </p>
+        <h1 class="title">Fridayssheep还活着吗</h1>
+        <p class="subtitle">看看这BYD是不是又去摸鱼了……</p>
         <div class="intro">
           <p>欢迎来到我的个人服务监控面板！</p>
-          <p>点击上方导航栏，可以视奸我的工作站运行状态和 GitHub 摸鱼情况。</p>
+          <p>可以视奸我的工作站运行状态和 GitHub 摸鱼情况。</p>
         </div>
-        <el-button type="primary" round size="large" @click="$router.push('/workstation')">
-          查看工作站状态
-        </el-button>
       </div>
     </el-card>
   </div>

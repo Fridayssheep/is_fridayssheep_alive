@@ -17,11 +17,19 @@ type GitHubEvent struct {
 }
 
 type GitHubStatus struct {
-	HasRecentActivity bool   `json:"has_recent_activity"`
-	LastActivityType  string `json:"last_activity_type"`
-	LastActivityRepo  string `json:"last_activity_repo"`
-	LastActivityTime  string `json:"last_activity_time"`
-	Error             string `json:"error,omitempty"`
+	HasRecentActivity bool         `json:"has_recent_activity"`
+	LastActivityType  string       `json:"last_activity_type"`
+	LastActivityRepo  string       `json:"last_activity_repo"`
+	LastActivityTime  string       `json:"last_activity_time"`
+	RecentCommits     []CommitInfo `json:"recent_commits"`
+	Error             string       `json:"error,omitempty"`
+}
+
+type CommitInfo struct {
+	Message string `json:"message"`
+	Author  string `json:"author"`
+	URL     string `json:"url"`
+	Date    string `json:"date"`
 }
 
 var lastFetch time.Time
@@ -92,6 +100,42 @@ func GetGitHubStatus(username string) GitHubStatus {
 			status.LastActivityType = events[0].Type
 			status.LastActivityRepo = events[0].Repo.Name
 			status.LastActivityTime = events[0].CreatedAt
+		}
+
+		// Fetch recent commits for the active repo
+		if status.LastActivityRepo != "" {
+			commitsURL := fmt.Sprintf("https://api.github.com/repos/%s/commits?per_page=5", status.LastActivityRepo)
+			commitsReq, cerr := http.NewRequest("GET", commitsURL, nil)
+			if cerr == nil {
+				commitsReq.Header.Set("User-Agent", "is-frisheep-alive-monitor")
+				commitsReq.Header.Set("Accept", "application/vnd.github.v3+json")
+
+				if commitsResp, cerr := client.Do(commitsReq); cerr == nil {
+					defer commitsResp.Body.Close()
+					if commitsResp.StatusCode == http.StatusOK {
+						var rc []struct {
+							HtmlUrl string `json:"html_url"`
+							Commit  struct {
+								Message string `json:"message"`
+								Author  struct {
+									Name string `json:"name"`
+									Date string `json:"date"`
+								} `json:"author"`
+							} `json:"commit"`
+						}
+						if json.NewDecoder(commitsResp.Body).Decode(&rc) == nil {
+							for _, c := range rc {
+								status.RecentCommits = append(status.RecentCommits, CommitInfo{
+									Message: strings.Split(c.Commit.Message, "\n")[0], // Get only the first line of the commit message
+									Author:  c.Commit.Author.Name,
+									URL:     c.HtmlUrl,
+									Date:    c.Commit.Author.Date,
+								})
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 

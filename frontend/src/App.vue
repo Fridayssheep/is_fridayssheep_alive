@@ -3,7 +3,7 @@
     <el-container>
       <el-header class="glass-header">
         <div class="header-content">
-          <div class="logo">Fridayssheep 状态监控面板</div>
+          <div class="logo">Fridayssheep似了吗</div>
           
           <div class="nav-container">
             <el-tabs v-model="activeRoute" @tab-click="handleTabClick" class="nav-tabs">

@@ -4,10 +4,10 @@
       <template #header>
         <div class="card-header">
           <div style="display: flex; align-items: center; gap: 8px;">
-            <el-icon><Discount /></el-icon> 🐙 GitHub 提交状态
+            <el-icon><Discount /></el-icon> GitHub 提交状态
           </div>
           <el-tag :type="status?.github?.has_recent_activity ? 'success' : 'info'" effect="dark" round>
-            {{ status?.github?.has_recent_activity ? '卷王在线' : '近期在摸鱼' }}
+            {{ status?.github?.has_recent_activity ? '似乎还活着' : '近期在摸鱼' }}
           </el-tag>
         </div>
       </template>
@@ -49,8 +49,35 @@
           </div>
         </div>
       </div>
+
+      <div v-if="status?.github?.recent_commits && status.github.recent_commits.length > 0" class="commits-timeline">
+        <el-divider>
+          <el-icon><Calendar /></el-icon> 该仓库下的最近提交记录
+        </el-divider>
+        <el-timeline>
+          <el-timeline-item
+            v-for="(commit, index) in status.github.recent_commits"
+            :key="index"
+            :timestamp="new Date(commit.date).toLocaleString()"
+            placement="top"
+            :color="index === 0 ? 'var(--el-color-primary)' : '#e4e7ed'"
+            :hollow="index !== 0"
+          >
+            <el-card shadow="hover" class="commit-card">
+              <div class="commit-message">
+                <el-link :href="commit.url" target="_blank" :underline="false">
+                  {{ commit.message }}
+                </el-link>
+              </div>
+              <div class="commit-author">
+                <el-icon><User /></el-icon> {{ commit.author }}
+              </div>
+            </el-card>
+          </el-timeline-item>
+        </el-timeline>
+      </div>
       
-      <el-empty v-else description="暂时没有获取到 GitHub 数据..." :image-size="60">
+      <el-empty v-else-if="!status?.github" description="暂时没有获取到 GitHub 数据..." :image-size="60">
         <template #image>
           <el-icon size="60" color="#c0c4cc"><Discount /></el-icon>
         </template>
@@ -62,7 +89,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { Discount, Notification, FolderOpened, Clock } from '@element-plus/icons-vue'
+import { Discount, Notification, FolderOpened, Clock, Calendar, User } from '@element-plus/icons-vue'
 
 const status = ref(null)
 const loading = ref(true)
@@ -144,6 +171,51 @@ onMounted(() => {
   font-size: 1rem;
   font-weight: 500;
   color: #333;
+}
+
+/* --------------- 提交记录时间线 --------------- */
+.commits-timeline {
+  margin-top: 30px;
+}
+:deep(.el-divider__text) {
+  background-color: var(--el-bg-color, #ffffff) !important;
+  color: #888;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 15px;
+  border-radius: 20px;
+}
+.commit-card {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.02) !important;
+}
+.commit-message {
+  font-size: 0.95rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.commit-message a {
+  color: #333;
+  transition: color 0.2s;
+}
+.commit-message a:hover {
+  color: var(--el-color-primary);
+}
+.commit-author {
+  font-size: 0.8rem;
+  color: #888;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+:deep(.el-timeline-item__content) {
+  margin-top: -4px;
 }
 
 :deep(.el-empty) {
