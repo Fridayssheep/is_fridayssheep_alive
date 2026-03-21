@@ -94,6 +94,11 @@ func main() {
 		log.Fatal("OLLAMA_API_URL environment variable is not configured. Exiting.")
 	}
 
+	awURL := os.Getenv("ACTIVITYWATCH_URL")
+	if awURL == "" {
+		log.Fatal("ACTIVITYWATCH_URL environment variable is not configured. Exiting.")
+	}
+
 	// 从环境变量加载刷新时间，默认 5 秒
 	intervalStr := os.Getenv("REFRESH_INTERVAL")
 	refreshInterval := 5
@@ -102,7 +107,7 @@ func main() {
 	}
 
 	// 启动后台轮询数据（不再在每次请求时实时 SSH 去读取）
-	router.StartPolling(sshClient, githubUsername, ollamaURL, refreshInterval)
+	router.StartPolling(sshClient, githubUsername, ollamaURL, awURL, refreshInterval)
 
 	// 挂载路由（处理 GET 请求，直接返回内存缓存的值）
 	handler := router.SetupRouter(sshClient)

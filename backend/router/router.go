@@ -21,18 +21,40 @@ type DashboardStatus struct {
 	Status     string                       `json:"status"` // 用于标识远端拉取状态，比如 "ok" 或是 "error"
 }
 
+type ActivityCache struct {
+	mu       sync.RWMutex
+	state    monitor.ActivityWatchStatus
+	cachedAt time.Time
+}
+
 type StatusCache struct {
 	mu    sync.RWMutex
 	state DashboardStatus
 }
 
 var globalCache *StatusCache
+var globalActivityCache *ActivityCache
 
 // StartPolling 启动后台定时轮询任务
-func StartPolling(sshClient *ssh.Client, githubUsername string, ollamaURL string, intervalSeconds int) {
+func StartPolling(sshClient *ssh.Client, githubUsername string, ollamaURL string, awURL string, intervalSeconds int) {
 	globalCache = &StatusCache{
 		state: DashboardStatus{Status: "initializing"},
 	}
+	globalActivityCache = &ActivityCache{}
+
+	var ghStatus monitor.GitHubStatus
+	var ghMutex sync.RWMutex
+
+	// 启动一个专门获取 Github 状态的 goroutine，限制 10 分钟拉取一次以避免 Rate limit exceeded
+	go func() {
+		for {
+			gh := monitor.GetGitHubStatus(githubUsername)
+			ghMutex.Lock()
+			ghStatus = gh
+			ghMutex.Unlock()
+			time.Sleep(10 * time.Minute)
+		}
+	}()
 
 	updateTask := func() {
 		// 检查 SSH 连接是否存活。通过执行一个简单的 echo 命令测试
@@ -57,8 +79,18 @@ func StartPolling(sshClient *ssh.Client, githubUsername string, ollamaURL string
 			}
 		}
 
-		// Github 状态不依赖工作站，应该始终拉取
-		gh := monitor.GetGitHubStatus(githubUsername)
+		// Github 状态不依赖工作站，且受限频影响，从每10分钟更新一次的独立缓存拉取
+		ghMutex.RLock()
+		gh := ghStatus
+		ghMutex.RUnlock()
+
+		// ActivityWatch 状态从本地 Windows 主机拉取
+		activity := monitor.GetActivityWatchStatus(awURL)
+
+		globalActivityCache.mu.Lock()
+		globalActivityCache.state = activity
+		globalActivityCache.cachedAt = time.Now()
+		globalActivityCache.mu.Unlock()
 
 		globalCache.mu.Lock()
 		globalCache.state = DashboardStatus{
@@ -106,6 +138,20 @@ func SetupRouter(sshClient *ssh.Client) http.Handler {
 		globalCache.mu.RLock()
 		data := globalCache.state
 		globalCache.mu.RUnlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
+	})
+
+	mux.HandleFunc("/api/activity", func(w http.ResponseWriter, r *http.Request) {
+		if globalActivityCache == nil {
+			http.Error(w, `{"error": "Activity backend is not fully initialized"}`, http.StatusServiceUnavailable)
+			return
+		}
+
+		globalActivityCache.mu.RLock()
+		data := globalActivityCache.state
+		globalActivityCache.mu.RUnlock()
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(data)
