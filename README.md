@@ -134,5 +134,3 @@ docker-compose up -d --build
 ```
 *提示：`match` 字段支持模糊匹配（无视大小写），只要进程名字中包含了数组里的关键词即会自动应用配置的主题色。*
 
-## License
-本项目遵循MIT License开源协议，欢迎任何形式的贡献和使用！如果你有任何建议或想法，欢迎提交Issue或Pull Request。
