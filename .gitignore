@@ -10,6 +10,7 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+napcat/
 
 # Virtual environments
 venv/

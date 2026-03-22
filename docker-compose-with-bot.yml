@@ -1,0 +1,51 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: frisheep-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # 如果你希望后端直接对宿主机暴露可以取消这行注释
+      - "8080:8080"
+      # - "8080" # 只在 Docker 网络内暴露
+    # 将包含 SSH 私钥的目录映射以便程序可以使用它
+    # volumes:
+    #   - ~/.ssh/id_rsa:/root/.ssh/id_rsa:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_REFRESH_INTERVAL=${VITE_REFRESH_INTERVAL:-5}
+        ## 修改env文件中的VITE_REFRESH_INTERVAL值或是直接修改${VITE_REFRESH_INTERVAL:-5}为数字可以调整前端自动重拉远端设备状态的间隔时间，单位为秒
+    container_name: frisheep-frontend
+    restart: unless-stopped
+    ports:
+      # 对外暴露前端网页的端口，例如这里映射为本机的 5601 端口
+      - "5601:80"
+    volumes:
+      # 将宿主机的配置文件映射进容器，后续即可不用重启镜像就直接热生效修改
+      - ./config.json:/usr/share/nginx/html/config.json:ro
+      # 如果你想自定义背景图，也可以将背景图放在宿主机上并映射进容器，例如：
+      #- ./backgrounds.webp:/usr/share/nginx/html/backgrounds.webp:ro
+    depends_on:
+      - backend
+  napcat:
+    environment:
+      - NAPCAT_UID=${NAPCAT_UID}
+      - NAPCAT_GID=${NAPCAT_GID}
+    ports:
+      - 3000:3000
+      - 3001:3001
+      - 6099:6099
+    volumes:
+      - ./napcat/QQ:/app/.config/QQ
+      - ./napcat/config:/app/napcat/config
+      #- ./napcat/plugins:/app/napcat/plugins
+    container_name: napcat
+    restart: unless-stopped
+    image: mlikiowa/napcat-docker:latest
