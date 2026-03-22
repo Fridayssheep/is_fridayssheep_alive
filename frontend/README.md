@@ -1,5 +1,26 @@
-# Vue 3 + Vite
+# Is Friday's Sheep Alive? (前端)
+这是 `is_fridayssheep_alive` 项目的前端代码库，基于现代化的前端构建工具 **Vite** 和 **Vue 3** 框架开发。
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+## 快速开始
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+请确保你的开发环境已安装了 Node.js（建议 Node.js 20 及以上版本）。
+
+### 1. 安装项目依赖
+
+```bash
+npm install
+```
+
+### 2. 启动开发服务器
+
+```bash
+npm run dev
+```
+
+### 3. 构建生产环境代码
+
+打包后的文件将生成在 `dist` 目录中。
+
+```bash
+npm run build
+```

@@ -1,0 +1,60 @@
+{
+  "activityRules": [
+    {
+      "match": ["Code", "idea", "Cursor", "devenv"],
+      "label": "正在爆肝",
+      "color": "#67C23A"
+    },
+    {
+      "match": ["msedge", "chrome", "firefox", "browser"],
+      "label": "网上冲浪",
+      "color": "#409EFF"
+    },
+    {
+      "match": ["NeteaseMusic", "Spotify", "qqmusic"],
+      "label": "享受音乐",
+      "color": "#E6A23C"
+    },
+    {
+      "match": ["Steam", "League of Legends", "Genshin Impact"],
+      "label": "打游戏",
+      "color": "#F56C6C"
+    }
+  ],
+  "activityDefault": {
+    "label": "正常使用",
+    "color": "#909399"
+  },
+  "timeGreetingRules": [
+    {
+      "start": "00:00",
+      "end": "05:59",
+      "text": "夜深了，注意休息哦🌙",
+      "color": "#909399"
+    },
+    {
+      "start": "06:00",
+      "end": "11:59",
+      "text": "早上好呀🌅",
+      "color": "#67C23A"
+    },
+    {
+      "start": "12:00",
+      "end": "13:59",
+      "text": "午休时间~🍱",
+      "color": "#E6A23C"
+    },
+    {
+      "start": "14:00",
+      "end": "18:59",
+      "text": "下午的大好时光☕",
+      "color": "#409EFF"
+    },
+    {
+      "start": "19:00",
+      "end": "23:59",
+      "text": "晚上好！🌃",
+      "color": "#B3E19D"
+    }
+  ]
+}

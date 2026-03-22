@@ -228,9 +228,11 @@ onMounted(() => {
   fetchConfig()
   fetchActivity()
   fetchLastfm()
+  
+  const refreshInterval = parseInt(import.meta.env.VITE_REFRESH_INTERVAL || '5') * 1000
   timer = setInterval(() => {
     fetchActivity()
-  }, 5000)
+  }, refreshInterval)
   
   // Last.fm 单独的定时器
   setInterval(fetchLastfm, lfmConfig.interval)

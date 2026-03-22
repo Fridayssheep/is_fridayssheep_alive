@@ -7,6 +7,10 @@ RUN npm install
 
 COPY . .
 
+# 接收 docker-compose 传进来的构建参数并设为环境变量供 Vite 编译使用
+ARG VITE_REFRESH_INTERVAL
+ENV VITE_REFRESH_INTERVAL=$VITE_REFRESH_INTERVAL
+
 # 如果是通过 Nginx 转发，用相对路径（空字符串）让它默认访问根域名的 /api 的路由
 ENV VITE_BACKEND_URL=""
 RUN npm run build
