@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
+	"frisheep-alive-backend/logger"
 	"frisheep-alive-backend/router"
 
 	"github.com/joho/godotenv"
@@ -72,12 +72,13 @@ func initSSHClient() error {
 
 func main() {
 	_ = godotenv.Load("../.env", ".env")
+	logger.Init()
 
 	err := initSSHClient()
 	if err != nil {
-		log.Fatalf("SSH Initialization failed: %v", err)
+		logger.Fatalf("SSH initialization failed: %v", err)
 	}
-	fmt.Println("SSH connected successfully to", os.Getenv("SSH_HOST"))
+	logger.Infof("SSH connected successfully to %s", os.Getenv("SSH_HOST"))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -86,17 +87,17 @@ func main() {
 
 	githubUsername := os.Getenv("GITHUB_USERNAME")
 	if githubUsername == "" {
-		log.Fatal("GITHUB_USERNAME environment variable is not configured. Exiting.")
+		logger.Fatalf("GITHUB_USERNAME environment variable is not configured. Exiting.")
 	}
 
 	ollamaURL := os.Getenv("OLLAMA_API_URL")
 	if ollamaURL == "" {
-		log.Fatal("OLLAMA_API_URL environment variable is not configured. Exiting.")
+		logger.Fatalf("OLLAMA_API_URL environment variable is not configured. Exiting.")
 	}
 
 	awURL := os.Getenv("ACTIVITYWATCH_URL")
 	if awURL == "" {
-		log.Fatal("ACTIVITYWATCH_URL environment variable is not configured. Exiting.")
+		logger.Fatalf("ACTIVITYWATCH_URL environment variable is not configured. Exiting.")
 	}
 
 	// 从环境变量加载刷新时间，默认 5 秒
@@ -111,6 +112,8 @@ func main() {
 
 	// 挂载路由（处理 GET 请求，直接返回内存缓存的值）
 	handler := router.SetupRouter(sshClient)
-	fmt.Printf("Starting remote monitoring backend on :%s, auto-refresh every %ds\n", port, refreshInterval)
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	logger.Infof("Starting remote monitoring backend on :%s, auto-refresh every %ds", port, refreshInterval)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
+		logger.Fatalf("HTTP server exited unexpectedly: %v", err)
+	}
 }

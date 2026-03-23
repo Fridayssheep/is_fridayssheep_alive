@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"frisheep-alive-backend/logger"
 	"io"
 	"net/http"
 	"os"
@@ -19,7 +20,7 @@ func sendNapcatMessage(msg string) {
 	token := os.Getenv("NAPCAT_TOKEN")          // 认证用的 token (如有)
 
 	if apiUrl == "" {
-		fmt.Println("Napcat API URL not configured, skipping push.")
+		logger.Warnf("NAPCAT_API_URL not configured, skipping push")
 		return
 	}
 
@@ -49,7 +50,7 @@ func sendNapcatMessage(msg string) {
 
 			groupId, err := strconv.ParseInt(gStr, 10, 64)
 			if err != nil {
-				fmt.Printf("Invalid NAPCAT_GROUP_ID member '%s', must be integer: %v\n", gStr, err)
+				logger.Warnf("Invalid NAPCAT_GROUP_ID member %q, must be integer: %v", gStr, err)
 				continue
 			}
 
@@ -59,10 +60,21 @@ func sendNapcatMessage(msg string) {
 			}
 
 			jsonValue, _ := json.Marshal(payload)
-			resp, err := doPost(fmt.Sprintf("%s/send_group_msg", apiUrl), jsonValue)
+			reqURL := fmt.Sprintf("%s/send_group_msg", apiUrl)
+			logger.Debugf("[GitHub Webhook] POST %s, payload=%s", reqURL, string(jsonValue))
+			resp, err := doPost(reqURL, jsonValue)
 			if err != nil {
-				fmt.Printf("Failed to send message to NapCat group %d: %v\n", groupId, err)
+				logger.Errorf("Failed to send message to NapCat group %d: %v", groupId, err)
 				continue
+			}
+
+			// 尝试读取并打印 NapCat 返回的响应体，看看它是不是拒绝了我们
+			respBody, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode >= 400 {
+				logger.Errorf("NapCat group push failed: status=%d body=%s", resp.StatusCode, string(respBody))
+			} else {
+				logger.Infof("NapCat group push ok: status=%d", resp.StatusCode)
+				logger.Debugf("NapCat group push response body=%s", string(respBody))
 			}
 			resp.Body.Close()
 		}
@@ -79,7 +91,7 @@ func sendNapcatMessage(msg string) {
 
 			userId, err := strconv.ParseInt(uStr, 10, 64)
 			if err != nil {
-				fmt.Printf("Invalid NAPCAT_USER_ID member '%s', must be integer: %v\n", uStr, err)
+				logger.Warnf("Invalid NAPCAT_USER_ID member %q, must be integer: %v", uStr, err)
 				continue
 			}
 
@@ -89,10 +101,21 @@ func sendNapcatMessage(msg string) {
 			}
 
 			jsonValue, _ := json.Marshal(payload)
-			resp, err := doPost(fmt.Sprintf("%s/send_msg", apiUrl), jsonValue)
+			reqURL := fmt.Sprintf("%s/send_private_msg", apiUrl)
+			logger.Debugf("[GitHub Webhook] POST %s, payload=%s", reqURL, string(jsonValue))
+			resp, err := doPost(reqURL, jsonValue)
 			if err != nil {
-				fmt.Printf("Failed to send private message to NapCat user %d: %v\n", userId, err)
+				logger.Errorf("Failed to send private message to NapCat user %d: %v", userId, err)
 				continue
+			}
+
+			// 尝试读取并打印 NapCat 返回的响应体，排查 HTTP 请求通过但却没发出去的原因
+			respBody, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode >= 400 {
+				logger.Errorf("NapCat private push failed: status=%d body=%s", resp.StatusCode, string(respBody))
+			} else {
+				logger.Infof("NapCat private push ok: status=%d", resp.StatusCode)
+				logger.Debugf("NapCat private push response body=%s", string(respBody))
 			}
 			resp.Body.Close()
 		}
@@ -142,9 +165,11 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Github 通过该 Header 标识事件类型
 	eventType := r.Header.Get("X-GitHub-Event")
+	logger.Infof("GitHub webhook received: method=%s event=%s remote=%s", r.Method, eventType, r.RemoteAddr)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		logger.Errorf("Failed to read github webhook body: %v", err)
 		http.Error(w, "Can't read body", http.StatusBadRequest)
 		return
 	}
@@ -152,6 +177,7 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch eventType {
 	case "ping":
+		logger.Infof("GitHub webhook ping event received")
 		var repo struct {
 			Repository struct {
 				Name string `json:"name"`
@@ -160,11 +186,15 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		if err := json.Unmarshal(body, &repo); err == nil {
 			msg := fmt.Sprintf("✅ 成功接入 GitHub Webhook 监听！\n📦 仓库：%s\n设置监听成功", repo.Repository.Name)
 			go sendNapcatMessage(msg)
+		} else {
+			logger.Warnf("Unable to parse ping payload: %v", err)
 		}
 
 	case "push":
+		logger.Infof("GitHub webhook push event received")
 		var event GitHubPushEvent
 		if err := json.Unmarshal(body, &event); err != nil {
+			logger.Errorf("Invalid push payload: %v", err)
 			http.Error(w, "Invalid push payload", http.StatusBadRequest)
 			return
 		}
@@ -186,11 +216,15 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 				msg += fmt.Sprintf("\n- %s (%s)", shortMsg, commit.Author.Name)
 			}
 			go sendNapcatMessage(msg)
+		} else {
+			logger.Warnf("Push payload contains zero commits, skip push notification")
 		}
 
 	case "pull_request":
+		logger.Infof("GitHub webhook pull_request event received")
 		var event GitHubPullRequestEvent
 		if err := json.Unmarshal(body, &event); err != nil {
+			logger.Errorf("Invalid pull_request payload: %v", err)
 			http.Error(w, "Invalid PR payload", http.StatusBadRequest)
 			return
 		}
@@ -208,7 +242,11 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 			msg := fmt.Sprintf("🔀 GitHub PR 更新！\n👤 %s %s Pull Request\n📦 仓库：%s\n📝 标题：%s\n🔗 链接：%s",
 				event.PullRequest.User.Login, actionMsg, event.Repository.Name, event.PullRequest.Title, event.PullRequest.HTMLURL)
 			go sendNapcatMessage(msg)
+		} else {
+			logger.Debugf("PR action %q ignored", event.Action)
 		}
+	default:
+		logger.Warnf("GitHub webhook event %q is not handled", eventType)
 	}
 
 	w.WriteHeader(http.StatusOK)
