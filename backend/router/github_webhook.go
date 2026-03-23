@@ -73,7 +73,7 @@ func sendNapcatMessage(msg string) {
 			}
 
 			jsonValue, _ := json.Marshal(payload)
-			resp, err := http.Post(fmt.Sprintf("%s/send_private_msg", apiUrl), "application/json", bytes.NewBuffer(jsonValue))
+			resp, err := http.Post(fmt.Sprintf("%s/send_msg", apiUrl), "application/json", bytes.NewBuffer(jsonValue))
 			if err != nil {
 				fmt.Printf("Failed to send private message to NapCat user %d: %v\n", userId, err)
 				continue
