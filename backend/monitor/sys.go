@@ -1,7 +1,7 @@
 package monitor
 
 import (
-	"fmt"
+	"frisheep-alive-backend/logger"
 	"strconv"
 	"strings"
 
@@ -33,13 +33,13 @@ func GetSysStatus(client *ssh.Client) SysStatus {
 			status.CPUPercent = cpuVal
 		}
 	} else {
-		fmt.Printf("Get CPU Error: %v\n", err)
+		logger.Warnf("Get CPU error: %v", err)
 	}
 
 	memCmd := "bash -c \"free -b | awk 'NR==2{print \\$2,\\$3}'\""
 	memOut, err := RunCommand(client, memCmd)
 	if err != nil {
-		fmt.Printf("Error fetching memory: %v\n", err)
+		logger.Warnf("Error fetching memory: %v", err)
 	} else {
 		lines := strings.Split(strings.TrimSpace(memOut), "\n")
 		lastLine := strings.TrimSpace(lines[len(lines)-1])

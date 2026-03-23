@@ -69,6 +69,9 @@
                   {{ commit.message }}
                 </el-link>
               </div>
+              <div v-if="commit.short_sha" class="commit-sha">
+                <el-tag size="small" type="info" effect="plain">{{ commit.short_sha }}</el-tag>
+              </div>
               <div class="commit-author">
                 <el-icon><User /></el-icon> {{ commit.author }}
               </div>
@@ -212,6 +215,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.commit-sha {
+  margin-bottom: 8px;
 }
 
 :deep(.el-timeline-item__content) {
