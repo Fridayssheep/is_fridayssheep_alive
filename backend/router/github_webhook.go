@@ -2,6 +2,10 @@ package router
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"frisheep-alive-backend/logger"
@@ -11,6 +15,24 @@ import (
 	"strconv"
 	"strings"
 )
+
+func verifyGitHubSignature(body []byte, signatureHeader, secret string) bool {
+	if !strings.HasPrefix(signatureHeader, "sha256=") {
+		return false
+	}
+
+	sigHex := strings.TrimPrefix(signatureHeader, "sha256=")
+	receivedSig, err := hex.DecodeString(sigHex)
+	if err != nil {
+		return false
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	expectedSig := mac.Sum(nil)
+
+	return subtle.ConstantTimeCompare(receivedSig, expectedSig) == 1
+}
 
 // 发送消息到 NapCat
 func sendNapcatMessage(msg string) {
@@ -174,6 +196,21 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	secret := os.Getenv("GITHUB_WEBHOOK_SECRET")
+	if secret == "" {
+		logger.Errorf("GITHUB_WEBHOOK_SECRET is not configured")
+		http.Error(w, "Webhook secret not configured", http.StatusInternalServerError)
+		return
+	}
+
+	signatureHeader := r.Header.Get("X-Hub-Signature-256")
+	if !verifyGitHubSignature(body, signatureHeader, secret) {
+		logger.Warnf("GitHub webhook signature verification failed: remote=%s event=%s", r.RemoteAddr, eventType)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	logger.Debugf("GitHub webhook signature verified successfully")
 
 	switch eventType {
 	case "ping":
