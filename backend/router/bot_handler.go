@@ -74,6 +74,13 @@ func BotWebhookHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				replyMsg += "\n\nOllama 状态: 无运行中的模型，或未开启服务"
 			}
+
+			if len(data.GitHub.RecentCommits) > 0 {
+				latest := data.GitHub.RecentCommits[0]
+				if latest.ShortSHA != "" {
+					replyMsg += fmt.Sprintf("\n\n最新代码版本: %s", latest.ShortSHA)
+				}
+			}
 		} else {
 			replyMsg = "⚠️ 目标工作站当前离线或无法连接！"
 		}
@@ -102,7 +109,11 @@ func BotWebhookHandler(w http.ResponseWriter, r *http.Request) {
 					if len(msg) > 100 {
 						msg = msg[:97] + "..."
 					}
-					replyMsg += fmt.Sprintf("\n- %s", msg)
+					if commit.ShortSHA != "" {
+						replyMsg += fmt.Sprintf("\n- [%s] %s", commit.ShortSHA, msg)
+					} else {
+						replyMsg += fmt.Sprintf("\n- %s", msg)
+					}
 				}
 			}
 		}

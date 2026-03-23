@@ -53,9 +53,8 @@ func initSSHClient() error {
 	}
 
 	config := &ssh.ClientConfig{
-		User: user,
-		Auth: authMethods,
-		// INSECURE: accept any host key in a trusted local env.
+		User:            user,
+		Auth:            authMethods,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         5 * time.Second,
 	}

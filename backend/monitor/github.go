@@ -26,10 +26,12 @@ type GitHubStatus struct {
 }
 
 type CommitInfo struct {
-	Message string `json:"message"`
-	Author  string `json:"author"`
-	URL     string `json:"url"`
-	Date    string `json:"date"`
+	Message  string `json:"message"`
+	Author   string `json:"author"`
+	URL      string `json:"url"`
+	Date     string `json:"date"`
+	SHA      string `json:"sha"`
+	ShortSHA string `json:"short_sha"`
 }
 
 var lastFetch time.Time
@@ -114,6 +116,7 @@ func GetGitHubStatus(username string) GitHubStatus {
 					defer commitsResp.Body.Close()
 					if commitsResp.StatusCode == http.StatusOK {
 						var rc []struct {
+							SHA     string `json:"sha"`
 							HtmlUrl string `json:"html_url"`
 							Commit  struct {
 								Message string `json:"message"`
@@ -125,11 +128,17 @@ func GetGitHubStatus(username string) GitHubStatus {
 						}
 						if json.NewDecoder(commitsResp.Body).Decode(&rc) == nil {
 							for _, c := range rc {
+								shortSHA := c.SHA
+								if len(shortSHA) > 7 {
+									shortSHA = shortSHA[:7]
+								}
 								status.RecentCommits = append(status.RecentCommits, CommitInfo{
-									Message: strings.Split(c.Commit.Message, "\n")[0], // Get only the first line of the commit message
-									Author:  c.Commit.Author.Name,
-									URL:     c.HtmlUrl,
-									Date:    c.Commit.Author.Date,
+									Message:  strings.Split(c.Commit.Message, "\n")[0], // Get only the first line of the commit message
+									Author:   c.Commit.Author.Name,
+									URL:      c.HtmlUrl,
+									Date:     c.Commit.Author.Date,
+									SHA:      c.SHA,
+									ShortSHA: shortSHA,
 								})
 							}
 						}
