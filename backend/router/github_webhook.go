@@ -16,10 +16,26 @@ func sendNapcatMessage(msg string) {
 	apiUrl := os.Getenv("NAPCAT_API_URL")
 	groupIDsStr := os.Getenv("NAPCAT_GROUP_ID") // 目标群号，支持逗号分隔多个
 	userIDsStr := os.Getenv("NAPCAT_USER_ID")   // 目标私聊QQ号，支持逗号分隔多个
+	token := os.Getenv("NAPCAT_TOKEN")          // 认证用的 token (如有)
 
 	if apiUrl == "" {
 		fmt.Println("Napcat API URL not configured, skipping push.")
 		return
+	}
+
+	// 抽出通用的 HTTP POST 逻辑以带上 Token Header
+	doPost := func(url string, payload []byte) (*http.Response, error) {
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+
+		client := &http.Client{}
+		return client.Do(req)
 	}
 
 	// 推送到指定的群聊
@@ -43,7 +59,7 @@ func sendNapcatMessage(msg string) {
 			}
 
 			jsonValue, _ := json.Marshal(payload)
-			resp, err := http.Post(fmt.Sprintf("%s/send_group_msg", apiUrl), "application/json", bytes.NewBuffer(jsonValue))
+			resp, err := doPost(fmt.Sprintf("%s/send_group_msg", apiUrl), jsonValue)
 			if err != nil {
 				fmt.Printf("Failed to send message to NapCat group %d: %v\n", groupId, err)
 				continue
@@ -73,7 +89,7 @@ func sendNapcatMessage(msg string) {
 			}
 
 			jsonValue, _ := json.Marshal(payload)
-			resp, err := http.Post(fmt.Sprintf("%s/send_msg", apiUrl), "application/json", bytes.NewBuffer(jsonValue))
+			resp, err := doPost(fmt.Sprintf("%s/send_msg", apiUrl), jsonValue)
 			if err != nil {
 				fmt.Printf("Failed to send private message to NapCat user %d: %v\n", userId, err)
 				continue
