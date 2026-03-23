@@ -2,6 +2,10 @@ package router
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"frisheep-alive-backend/logger"
@@ -11,6 +15,50 @@ import (
 	"strconv"
 	"strings"
 )
+
+type napcatAPIResp struct {
+	Status  string `json:"status"`
+	RetCode int    `json:"retcode"`
+	Message string `json:"message"`
+}
+
+func logNapcatResult(scene string, httpStatus int, body []byte) {
+	if httpStatus >= 400 {
+		logger.Errorf("NapCat %s push failed: http_status=%d body=%s", scene, httpStatus, string(body))
+		return
+	}
+
+	var resp napcatAPIResp
+	if err := json.Unmarshal(body, &resp); err != nil {
+		logger.Warnf("NapCat %s push returned non-json or unknown response: http_status=%d body=%s", scene, httpStatus, string(body))
+		return
+	}
+
+	if resp.RetCode != 0 || (resp.Status != "" && resp.Status != "ok") {
+		logger.Errorf("NapCat %s push business failed: http_status=%d status=%s retcode=%d message=%s body=%s", scene, httpStatus, resp.Status, resp.RetCode, resp.Message, string(body))
+		return
+	}
+
+	logger.Infof("NapCat %s push ok: http_status=%d status=%s retcode=%d", scene, httpStatus, resp.Status, resp.RetCode)
+}
+
+func verifyGitHubSignature(body []byte, signatureHeader, secret string) bool {
+	if !strings.HasPrefix(signatureHeader, "sha256=") {
+		return false
+	}
+
+	sigHex := strings.TrimPrefix(signatureHeader, "sha256=")
+	receivedSig, err := hex.DecodeString(sigHex)
+	if err != nil {
+		return false
+	}
+
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	expectedSig := mac.Sum(nil)
+
+	return subtle.ConstantTimeCompare(receivedSig, expectedSig) == 1
+}
 
 // 发送消息到 NapCat
 func sendNapcatMessage(msg string) {
@@ -70,12 +118,8 @@ func sendNapcatMessage(msg string) {
 
 			// 尝试读取并打印 NapCat 返回的响应体，看看它是不是拒绝了我们
 			respBody, _ := io.ReadAll(resp.Body)
-			if resp.StatusCode >= 400 {
-				logger.Errorf("NapCat group push failed: status=%d body=%s", resp.StatusCode, string(respBody))
-			} else {
-				logger.Infof("NapCat group push ok: status=%d", resp.StatusCode)
-				logger.Debugf("NapCat group push response body=%s", string(respBody))
-			}
+			logNapcatResult("group", resp.StatusCode, respBody)
+			logger.Debugf("NapCat group push response body=%s", string(respBody))
 			resp.Body.Close()
 		}
 	}
@@ -111,12 +155,8 @@ func sendNapcatMessage(msg string) {
 
 			// 尝试读取并打印 NapCat 返回的响应体，排查 HTTP 请求通过但却没发出去的原因
 			respBody, _ := io.ReadAll(resp.Body)
-			if resp.StatusCode >= 400 {
-				logger.Errorf("NapCat private push failed: status=%d body=%s", resp.StatusCode, string(respBody))
-			} else {
-				logger.Infof("NapCat private push ok: status=%d", resp.StatusCode)
-				logger.Debugf("NapCat private push response body=%s", string(respBody))
-			}
+			logNapcatResult("private", resp.StatusCode, respBody)
+			logger.Debugf("NapCat private push response body=%s", string(respBody))
 			resp.Body.Close()
 		}
 	}
@@ -174,6 +214,21 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
+
+	secret := os.Getenv("GITHUB_WEBHOOK_SECRET")
+	if secret == "" {
+		logger.Errorf("GITHUB_WEBHOOK_SECRET is not configured")
+		http.Error(w, "Webhook secret not configured", http.StatusInternalServerError)
+		return
+	}
+
+	signatureHeader := r.Header.Get("X-Hub-Signature-256")
+	if !verifyGitHubSignature(body, signatureHeader, secret) {
+		logger.Warnf("GitHub webhook signature verification failed: remote=%s event=%s", r.RemoteAddr, eventType)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	logger.Debugf("GitHub webhook signature verified successfully")
 
 	switch eventType {
 	case "ping":

@@ -4,19 +4,73 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var cqAtPattern = regexp.MustCompile(`\[CQ:at,[^\]]+\]`)
+var cqAtQQPattern = regexp.MustCompile(`\[CQ:at,qq=([0-9]+)[^\]]*\]`)
+
+func normalizeBotCommand(raw string) string {
+	msg := strings.TrimSpace(raw)
+	// 去掉 OneBot/CQ 的 @ 提及片段，例如 [CQ:at,qq=123456]
+	msg = cqAtPattern.ReplaceAllString(msg, " ")
+	msg = strings.TrimSpace(msg)
+
+	// 常见群聊文本 @ 提及形式，避免阻断命令匹配
+	if strings.HasPrefix(msg, "@") {
+		parts := strings.Fields(msg)
+		if len(parts) > 1 {
+			msg = strings.Join(parts[1:], " ")
+		} else {
+			msg = ""
+		}
+	}
+
+	return strings.TrimSpace(msg)
+}
 
 type NapcatWebhookReq struct {
 	PostType    string `json:"post_type"`
 	MessageType string `json:"message_type"`
 	RawMessage  string `json:"raw_message"`
+	SelfId      int64  `json:"self_id"`
 	UserId      int64  `json:"user_id"`
 }
 
 type NapcatWebhookResp struct {
 	Reply string `json:"reply"`
+}
+
+func isMentionForBot(raw string, selfID int64) bool {
+	msg := strings.TrimSpace(raw)
+	if msg == "" {
+		return false
+	}
+
+	// 强约束：群聊里只接受 @ 机器人本人，避免被其他 @ 误触发。
+	if selfID <= 0 {
+		return false
+	}
+
+	matches := cqAtQQPattern.FindAllStringSubmatch(msg, -1)
+	for _, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		if m[1] == fmt.Sprintf("%d", selfID) {
+			return true
+		}
+	}
+
+	// 兼容文本型 @123456 或 @机器人QQ号 场景
+	plainAt := fmt.Sprintf("@%d", selfID)
+	if strings.Contains(msg, plainAt) {
+		return true
+	}
+
+	return false
 }
 
 // BotWebhookHandler 处理来自 NapCat / OneBot v11 的 Webhook 请求
@@ -38,10 +92,17 @@ func BotWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	replyMsg := ""
-	msgText := strings.TrimSpace(req.RawMessage)
+	// 群聊里必须 @ 机器人本人才会响应，防止刷屏乱入
+	if req.MessageType == "group" && !isMentionForBot(req.RawMessage, req.SelfId) {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
-	if strings.HasPrefix(msgText, "/在干啥") || strings.HasPrefix(msgText, "/看看你的") {
+	replyMsg := ""
+	msgText := normalizeBotCommand(req.RawMessage)
+	lowerMsgText := strings.ToLower(msgText)
+
+	if strings.HasPrefix(msgText, "/在干啥") || strings.HasPrefix(msgText, "/看看你的") || strings.HasPrefix(msgText, "在干啥") || strings.HasPrefix(msgText, "看看你的") {
 		globalActivityCache.mu.RLock()
 		act := globalActivityCache.state
 		globalActivityCache.mu.RUnlock()
@@ -51,7 +112,7 @@ func BotWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			replyMsg = "Fridayssheep 似乎不在电脑前，可能在摸鱼或者睡觉..."
 		}
-	} else if strings.HasPrefix(msgText, "/状态") || strings.HasPrefix(msgText, "/status") {
+	} else if strings.HasPrefix(msgText, "/状态") || strings.HasPrefix(lowerMsgText, "/status") || strings.HasPrefix(msgText, "状态") || strings.HasPrefix(lowerMsgText, "status") {
 		globalCache.mu.RLock()
 		data := globalCache.state
 		globalCache.mu.RUnlock()
@@ -84,7 +145,7 @@ func BotWebhookHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			replyMsg = "⚠️ 目标工作站当前离线或无法连接！"
 		}
-	} else if strings.HasPrefix(msgText, "/github") || strings.HasPrefix(msgText, "/代码") {
+	} else if strings.HasPrefix(lowerMsgText, "/github") || strings.HasPrefix(msgText, "/代码") || strings.HasPrefix(lowerMsgText, "github") || strings.HasPrefix(msgText, "代码") {
 		globalCache.mu.RLock()
 		data := globalCache.state
 		globalCache.mu.RUnlock()
@@ -117,7 +178,7 @@ func BotWebhookHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-	} else if strings.HasPrefix(msgText, "/help") || strings.HasPrefix(msgText, "/菜单") || strings.HasPrefix(msgText, "/帮助") {
+	} else if strings.HasPrefix(lowerMsgText, "/help") || strings.HasPrefix(msgText, "/菜单") || strings.HasPrefix(msgText, "/帮助") || strings.HasPrefix(lowerMsgText, "help") || strings.HasPrefix(msgText, "菜单") || strings.HasPrefix(msgText, "帮助") || strings.HasPrefix(lowerMsgText, "bot") {
 		replyMsg = "可用指令：\n" +
 			"1. /在干啥 或 /看看你的 - 查看这BYD当前是否还活着及正在使用的应用\n" +
 			"2. /状态 或 /status - 查看工作站当前运行状态(CPU、内存、GPU)\n" +
