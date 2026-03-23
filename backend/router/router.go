@@ -175,6 +175,9 @@ func SetupRouter(sshClient *ssh.Client) http.Handler {
 	// 增加针对 NapCat / OneBot v11 的 Webhook 机器人解析接口
 	mux.HandleFunc("/api/bot", BotWebhookHandler)
 
+	// 增加 GitHub Webhook 接收点
+	mux.HandleFunc("/api/github/webhook", GithubWebhookHandler)
+
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST"}, // 允许 POST 处理机器人请求
