@@ -10,6 +10,7 @@ import (
 )
 
 var cqAtPattern = regexp.MustCompile(`\[CQ:at,[^\]]+\]`)
+var cqAtQQPattern = regexp.MustCompile(`\[CQ:at,qq=([0-9]+)[^\]]*\]`)
 
 func normalizeBotCommand(raw string) string {
 	msg := strings.TrimSpace(raw)
@@ -48,20 +49,28 @@ func isMentionForBot(raw string, selfID int64) bool {
 		return false
 	}
 
-	if selfID > 0 {
-		target := fmt.Sprintf("[CQ:at,qq=%d", selfID)
-		if strings.Contains(msg, target) {
+	// 强约束：群聊里只接受 @ 机器人本人，避免被其他 @ 误触发。
+	if selfID <= 0 {
+		return false
+	}
+
+	matches := cqAtQQPattern.FindAllStringSubmatch(msg, -1)
+	for _, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		if m[1] == fmt.Sprintf("%d", selfID) {
 			return true
 		}
 	}
 
-	// 如果拿不到 self_id，退化为识别任意 CQ @ 提及
-	if strings.Contains(msg, "[CQ:at,") {
+	// 兼容文本型 @123456 或 @机器人QQ号 场景
+	plainAt := fmt.Sprintf("@%d", selfID)
+	if strings.Contains(msg, plainAt) {
 		return true
 	}
 
-	// 兼容文本型 @ 提及
-	return strings.HasPrefix(msg, "@")
+	return false
 }
 
 // BotWebhookHandler 处理来自 NapCat / OneBot v11 的 Webhook 请求
