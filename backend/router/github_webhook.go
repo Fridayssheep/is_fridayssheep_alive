@@ -135,6 +135,17 @@ func GithubWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	switch eventType {
+	case "ping":
+		var repo struct {
+			Repository struct {
+				Name string `json:"name"`
+			} `json:"repository"`
+		}
+		if err := json.Unmarshal(body, &repo); err == nil {
+			msg := fmt.Sprintf("✅ 成功接入 GitHub Webhook 监听！\n📦 仓库：%s\n设置监听成功", repo.Repository.Name)
+			go sendNapcatMessage(msg)
+		}
+
 	case "push":
 		var event GitHubPushEvent
 		if err := json.Unmarshal(body, &event); err != nil {
